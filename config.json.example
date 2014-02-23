@@ -1,0 +1,16 @@
+{
+	"OAuthCfg": {
+		"ConsumerKey": "",
+		"ConsumerSecret": "",
+		"CallbackUrl": "https://localhost:3000/callback",
+		"AdditionalRequestParams": {
+			"scope": "MyTradeMeRead"
+		},
+		"ServiceProvider": {
+			"RequestTokenUrl": "https://secure.tmsandbox.co.nz/Oauth/RequestToken",
+    		"AuthorizeTokenUrl": "https://secure.tmsandbox.co.nz/Oauth/Authorize",
+    		"AccessTokenUrl": "https://secure.tmsandbox.co.nz/Oauth/AccessToken"
+		}
+	}
+
+}

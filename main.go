@@ -3,12 +3,14 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"net/http"
 	"os"
 	"strings"
-	"net/http"
 
 	"github.com/mrjones/oauth"
+
 	"github.com/codegangsta/martini"
+	"github.com/martini-contrib/sessions"
 )
 
 type Config struct {
@@ -19,8 +21,8 @@ type OAuthCfg struct {
 	AdditionalRequestParams map[string]string
 	ConsumerKey             string
 	ConsumerSecret          string
-	CallbackUrl				string
-	ServiceProvider 		oauth.ServiceProvider
+	CallbackUrl             string
+	ServiceProvider         oauth.ServiceProvider
 }
 
 func main() {
@@ -42,23 +44,16 @@ func main() {
 
 	consumer.AdditionalParams = config.OAuthCfg.AdditionalRequestParams
 
-  	m := martini.Classic()
+	m := martini.Classic()
+
+	store := sessions.NewCookieStore([]byte("secret123"))
+	m.Use(sessions.Sessions("my_session", store))
 
 	m.Get("/", func() string {
 		return "Hello world!"
 	})
-	m.Get("/attach", func(res http.ResponseWriter, req *http.Request) {
-		requestToken, loginUrl, err := consumer.GetRequestTokenAndUrl(config.OAuthCfg.CallbackUrl)
-
-		outstandingTokens[requestToken.Token] = requestToken
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		http.Redirect(res, req, loginUrl, 302)
-	})
-	m.Get("/callback", func(req *http.Request) string {
+	m.Get("/attach", LinkToTradeMe)
+	m.Get("/callback", func(req *http.Request, session sessions.Session) string {
 		urlParams := req.URL.Query()
 
 		tokenString := strings.Join(urlParams["oauth_token"], "")
@@ -72,7 +67,26 @@ func main() {
 			log.Fatal(err)
 		}
 
+		session.Set("accessToken", accessToken.Token)
+		session.Set("accessTokenSecret", accessToken.Secret)
+
 		return ("<p> Oauth token: " + accessToken.Token + "</p>")
 	})
 	m.Run()
+}
+
+func LinkToTradeMe(res http.ResponseWriter, req *http.Request) {
+	if len(session.Get("accessToken")) > 0 {
+		return
+	}
+
+	requestToken, loginUrl, err := consumer.GetRequestTokenAndUrl(config.OAuthCfg.CallbackUrl)
+
+	outstandingTokens[requestToken.Token] = requestToken
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	http.Redirect(res, req, loginUrl, 302)
 }

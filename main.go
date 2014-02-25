@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"io"
 
 	"github.com/mrjones/oauth"
 
@@ -25,6 +26,10 @@ type OAuthCfg struct {
 	ServiceProvider         oauth.ServiceProvider
 }
 
+var config *Config
+var consumer *oauth.Consumer
+var outstandingTokens map[string]*oauth.RequestToken
+
 func main() {
 	file, err := os.Open("./config.json")
 
@@ -33,14 +38,14 @@ func main() {
 	}
 
 	decoder := json.NewDecoder(file)
-	config := &Config{}
+	config = &Config{}
 	decoder.Decode(&config)
 
 	file.Close()
 
-	outstandingTokens := make(map[string]*oauth.RequestToken, 100)
+	outstandingTokens = make(map[string]*oauth.RequestToken, 100)
 
-	consumer := oauth.NewConsumer(config.OAuthCfg.ConsumerKey, config.OAuthCfg.ConsumerSecret, config.OAuthCfg.ServiceProvider)
+	consumer = oauth.NewConsumer(config.OAuthCfg.ConsumerKey, config.OAuthCfg.ConsumerSecret, config.OAuthCfg.ServiceProvider)
 
 	consumer.AdditionalParams = config.OAuthCfg.AdditionalRequestParams
 
@@ -67,16 +72,39 @@ func main() {
 			log.Fatal(err)
 		}
 
+		accessToken, err = consumer.RefreshToken(accessToken)
+
 		session.Set("accessToken", accessToken.Token)
 		session.Set("accessTokenSecret", accessToken.Secret)
 
 		return ("<p> Oauth token: " + accessToken.Token + "</p>")
 	})
+	m.Get("/fav/sellers", LinkToTradeMe, func(rw http.ResponseWriter, session sessions.Session) {
+		res, err := consumer.Get("https://api.trademe.co.nz/v1/Favourites/Sellers.json", nil, GetAccessToken(session))
+
+		if (err != nil) {
+			log.Fatal(err)
+		}
+
+		_, err = io.Copy(rw, res.Body)
+
+		if (err != nil) {
+			log.Fatal(err)
+		}
+	})
+
 	m.Run()
 }
 
-func LinkToTradeMe(res http.ResponseWriter, req *http.Request) {
-	if len(session.Get("accessToken")) > 0 {
+func GetAccessToken (session sessions.Session) *oauth.AccessToken {
+	return &oauth.AccessToken {
+		Token: session.Get("accessToken").(string),
+		Secret: session.Get("accessTokenSecret").(string),
+	}
+}
+
+func LinkToTradeMe(rw http.ResponseWriter, req *http.Request, session sessions.Session) {
+	if session.Get("accessToken") != nil {
 		return
 	}
 
@@ -88,5 +116,5 @@ func LinkToTradeMe(res http.ResponseWriter, req *http.Request) {
 		log.Fatal(err)
 	}
 
-	http.Redirect(res, req, loginUrl, 302)
+	http.Redirect(rw, req, loginUrl, 302)
 }

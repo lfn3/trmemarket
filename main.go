@@ -72,15 +72,13 @@ func main() {
 			log.Fatal(err)
 		}
 
-		accessToken, err = consumer.RefreshToken(accessToken)
-
 		session.Set("accessToken", accessToken.Token)
 		session.Set("accessTokenSecret", accessToken.Secret)
 
 		return ("<p> Oauth token: " + accessToken.Token + "</p>")
 	})
 	m.Get("/fav/sellers", LinkToTradeMe, func(rw http.ResponseWriter, session sessions.Session) {
-		res, err := consumer.Get("https://api.trademe.co.nz/v1/Favourites/Sellers.json", nil, GetAccessToken(session))
+		res, err := consumer.Get("https://api.tmsandbox.co.nz/v1/Favourites/Sellers.json", nil, GetAccessToken(session))
 
 		if (err != nil) {
 			log.Fatal(err)

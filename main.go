@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"io"
+	"io/ioutil"
 
 	"github.com/mrjones/oauth"
 
@@ -15,6 +16,7 @@ import (
 )
 
 type Config struct {
+	ApiBaseUrl string
 	OAuthCfg OAuthCfg
 }
 
@@ -24,6 +26,13 @@ type OAuthCfg struct {
 	ConsumerSecret          string
 	CallbackUrl             string
 	ServiceProvider         oauth.ServiceProvider
+}
+
+type TradeMePagable struct {
+	TotalCount int
+	Page int
+	PageSize int
+	List []json.RawMessage
 }
 
 var config *Config
@@ -69,7 +78,7 @@ func main() {
 		accessToken, err := consumer.AuthorizeToken(reqToken, verificationString)
 
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
 
 		session.Set("accessToken", accessToken.Token)
@@ -78,16 +87,27 @@ func main() {
 		return ("<p> Oauth token: " + accessToken.Token + "</p>")
 	})
 	m.Get("/fav/sellers", LinkToTradeMe, func(rw http.ResponseWriter, session sessions.Session) {
-		res, err := consumer.Get("https://api.tmsandbox.co.nz/v1/Favourites/Sellers.json", nil, GetAccessToken(session))
+		res, err := consumer.Get(config.ApiBaseUrl + "Favourites/Sellers.json", nil, GetAccessToken(session))
 
 		if (err != nil) {
-			log.Fatal(err)
+			log.Println(err)
+		}
+
+		bytes, err := ioutil.ReadAll(res.Body)
+		if (err != nil) {
+			log.Println(err)
+		}
+
+		favList := TradeMePagable{}
+		err = json.Unmarshal(bytes, &favList)
+		if (err != nil) {
+			log.Println(err)
 		}
 
 		_, err = io.Copy(rw, res.Body)
 
 		if (err != nil) {
-			log.Fatal(err)
+			log.Println(err)
 		}
 	})
 
@@ -111,7 +131,7 @@ func LinkToTradeMe(rw http.ResponseWriter, req *http.Request, session sessions.S
 	outstandingTokens[requestToken.Token] = requestToken
 
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 	}
 
 	http.Redirect(rw, req, loginUrl, 302)

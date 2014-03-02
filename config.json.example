@@ -1,4 +1,5 @@
 {
+	"ApiBaseUrl": "https://api.tmsandbox.co.nz/v1/",
 	"OAuthCfg": {
 		"ConsumerKey": "",
 		"ConsumerSecret": "",
